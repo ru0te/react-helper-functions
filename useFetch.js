@@ -1,33 +1,56 @@
+import { useReducer } from 'react';
 import { useEffect } from 'react';
-import { useState } from 'react';
+
+const ACTIONS = {
+  FETCH_START: 'FETCH START',
+  FETCH_SUCCESS: 'FETCH_SUCCESS',
+  FETCH_ERROR: 'FETCH_ERROR',
+};
+
+function reducer(state, { type, payload }) {
+  switch (type) {
+    case ACTIONS.FETCH_START:
+      return { ...state, data: undefined, isError: false, isLoading: true };
+    case ACTIONS.FETCH_SUCCESS:
+      return {
+        ...state,
+        data: payload.data,
+        isError: false,
+        isLoading: false,
+      };
+    case ACTIONS.FETCH_ERROR:
+      return {
+        ...state,
+        isLoading: false,
+        isError: true,
+      };
+    default:
+      return state;
+  }
+}
 
 export function useFetch(url) {
-  const [data, setData] = useState(undefined);
-  const [error, setError] = useState(undefined);
-  const [status, setStatus] = useState('idle');
+  const [state, dispatch] = useReducer(reducer, {
+    data: undefined,
+    isError: false,
+    isLoading: true,
+  });
 
   useEffect(() => {
+    dispatch({ type: ACTIONS.FETCH_START });
     const controller = new AbortController();
-
-    setData(undefined);
-    setError(undefined);
-    setStatus('loading');
 
     async function fetchData() {
       try {
         const res = await fetch(url, { signal: controller.signal });
         if (!res.ok) {
-          const json = await res.json();
-          return Promise.reject(json);
+          throw new Error('Network response was not ok');
         }
-        const json = await res.json();
-        setData(json);
+        const data = await res.json();
+        dispatch({ type: ACTIONS.FETCH_SUCCESS, payload: { data } });
       } catch (err) {
         if (err.name === 'AbortError') return;
-        setError(err);
-        setStatus('error');
-      } finally {
-        setStatus('fetched');
+        dispatch({ type: ACTIONS.FETCH_ERROR });
       }
     }
 
@@ -38,5 +61,5 @@ export function useFetch(url) {
     };
   }, [url]);
 
-  return { data, error, status };
+  return state;
 }
